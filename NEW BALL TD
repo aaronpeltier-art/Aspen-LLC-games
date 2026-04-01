@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ball TD: The Grand Forge</title>
+    <style>
+        body { background: #020202; color: white; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+        #lobby, #game-container, #crate-lobby { width: 1180px; background: #111; padding: 20px; border-radius: 15px; margin: 20px 0; border: 3px solid #333; box-shadow: 0 0 60px #000; position: relative; }
+        .hidden { display: none !important; }
+        
+        .flex-row { display: flex; gap: 20px; align-items: flex-start; height: 82vh; }
+        .inventory-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; height: 100%; overflow-y: auto; background: #0a0a0a; padding: 15px; border: 2px solid #444; border-radius: 10px; flex: 1.6; }
+        .sidebar { width: 400px; display: flex; flex-direction: column; gap: 12px; height: 100%; overflow-y: auto; padding-right: 10px; }
+
+        .section-box { background: #000; padding: 12px; border-radius: 8px; border: 1px solid #333; }
+        .scroll-area { max-height: 220px; overflow-y: auto; padding-right: 5px; }
+
+        .btn { padding: 10px; font-weight: 900; cursor: pointer; border: none; border-radius: 5px; text-transform: uppercase; font-size: 10px; transition: 0.1s; width: 100%; margin-bottom: 5px; }
+        .btn-blue { background: #2980b9; color: white; }
+        .btn-red { background: #c0392b; color: white; }
+        .btn-gold { background: #f1c40f; color: #000; }
+        .btn-aspen { background: #00ffcc; color: #000; border: 2px solid #fff; box-shadow: 0 0 15px #00ffcc; }
+
+        .ball-card { padding: 5px; border-radius: 6px; text-align: center; cursor: pointer; border: 2px solid transparent; height: 55px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #000; font-size: 10px; text-shadow: 0 1px 1px rgba(255,255,255,0.3); transition: transform 0.1s; }
+        .ball-card:hover { transform: scale(1.02); }
+        .ball-card.selected { border-color: #fff; box-shadow: 0 0 12px #fff; transform: translateY(-2px); }
+        
+        canvas { display: block; margin: 0 auto; border-radius: 10px; border: 4px solid #444; background: #08080f; cursor: crosshair; }
+        .map-card { background: #1a1a1a; border: 1px solid #333; padding: 10px; margin-bottom: 6px; border-radius: 5px; }
+        .craft-card { background: #151515; border-left: 4px solid #f1c40f; padding: 8px; margin-bottom: 6px; font-size: 11px; }
+    </style>
+</head>
+<body>
+
+    <div id="lobby">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 10px;">
+            <h1 style="margin:0; color: #f1c40f; letter-spacing: 2px;">BALL TD: <span style="color:#00ffcc">FORGE EDITION</span></h1>
+            <div style="text-align: right; color: #2ecc71; font-size: 32px; font-weight: 900;">$ <span id="lobby-money">0</span></div>
+        </div>
+
+        <div class="flex-row">
+            <div class="inventory-grid" id="inventory-list"></div>
+            
+            <div class="sidebar">
+                <button class="btn btn-aspen" onclick="aspenOverride()">ASPENLLC: SYNC ALL CATEGORIES</button>
+                <button class="btn btn-gold" onclick="switchTab('crate-lobby')">📦 CRATE WAREHOUSE</button>
+                
+                <div class="section-box">
+                    <h4 style="color:#00ffcc; margin:0 0 8px 0;">WORLD MAP</h4>
+                    <div id="map-list" class="scroll-area"></div>
+                </div>
+
+                <div class="section-box">
+                    <h4 style="color:#f1c40f; margin:0 0 8px 0;">CRAFTING TERMINAL</h4>
+                    <div id="craft-list" class="scroll-area"></div>
+                </div>
+
+                <div class="section-box">
+                    <h4 style="color:#888; margin:0 0 5px 0; font-size:11px;">VALUABLES</h4>
+                    <div id="mats-display" style="color:#0ff; font-size:12px; font-family: monospace; font-weight: bold;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="crate-lobby" class="hidden">
+        <div style="padding: 20px;">
+            <button class="btn btn-red" style="width: 180px;" onclick="switchTab('lobby')">⬅ RETURN</button>
+            <h2 style="text-align: center; color: #f1c40f; font-size: 30px;">CRATE OPENING</h2>
+            <div id="crate-display" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 30px;"></div>
+        </div>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <div style="display: flex; justify-content: space-between; padding: 12px; background: #1a1a1a; border-bottom: 3px solid #333;">
+            <div id="g-stats" style="color: #2ecc71; font-weight: 900; font-size: 20px;">CASH: $0 | HP: 100 | WAVE: 1</div>
+            <div id="build-status" style="color: #f1c40f; font-weight: bold; align-self: center;">SELECT A BALL TO PLACE</div>
+            <button class="btn btn-red" style="width: 140px;" onclick="quitGame()">GIVE UP</button>
+        </div>
+        <canvas id="gameCanvas" width="960" height="480"></canvas>
+        <div id="game-bar" style="display:flex; justify-content:center; gap:8px; padding: 15px; background: #000; flex-wrap: wrap;"></div>
+    </div>
+
+<script>
+/** --- THE MASTER DATABASE --- **/
+const TIERS = {
+    COMMON: "#7f8c8d", UNCOMMON: "#27ae60", COOL: "#2980b9", AWESOME: "#e67e22",
+    LEGENDARY: "#f39c12", MYTHIC: "#ff0000", TRANSCENDENT: "#00ffff", OMEGA: "#a020f0", GODLY: "#ffffff"
+};
+
+const BALL_DB = {
+    COMMON: ["Ball", "Slimy Ball", "Baby Ball", "Crying Ball", "Dirty Ball", "Spit Ball"].map(n => ({name: n, dmg: 45, range: 130, rof: 60, special: n==="Spit Ball"?"spit":null})),
+    UNCOMMON: ["Climber Ball", "Ram Ball", "Golf Ball"].map(n => ({name: n, dmg: 110, range: 150, rof: 55})),
+    COOL: ["Goat Ball", "Bubble Ball", "Dirty Bubble Ball", "Peasant"].map(n => ({name: n, dmg: 280, range: 180, rof: 50})),
+    AWESOME: ["Sorcerer Ball", "Demon Ball", "Angel ball", "Brawl Ball"].map(n => ({name: n, dmg: 1200, range: 220, rof: 45})),
+    LEGENDARY: ["Crusher Ball", "Slayer Ball", "Destructive Ball", "Railgunner"].map(n => ({name: n, dmg: 6000, range: 280, rof: 40})),
+    MYTHIC: [{name: "Hacker Ball", dmg: 18000, range: 400, rof: 30, special: "hacker"}],
+    TRANSCENDENT: [
+        {name: "JesterBall", dmg: 40000, range: 350, rof: 35},
+        {name: "Prince of Hearts", dmg: 45000, range: 320, rof: 40},
+        {name: "Princess of Hearts", dmg: 45000, range: 320, rof: 40},
+        {name: "Queen of Hearts", dmg: 95000, range: 450, rof: 50},
+        {name: "King of Hearts", dmg: 180000, range: 500, rof: 25, special: "king"}
+    ],
+    OMEGA: [
+        {name: "Nunchucks Ball", dmg: 250000, range: 220, rof: 10},
+        {name: "Archangel Ball", dmg: 750000, range: 650, rof: 20, special: "archangel"},
+        {name: "GolemBall", dmg: 300000, range: 300, rof: 90, scale: 2.2, special: "golem"},
+        {name: "Void Ball", dmg: 320000, range: 450, rof: 30, scale: 0.6, special: "void"}
+    ],
+    GODLY: [{name: "Snowballer", dmg: 8000000, range: 850, rof: 5, scale: 0.4, special: "snowballer"}]
+};
+
+const MAP_DATA = [
+    { name: "Forest", drop: "forest" }, { name: "Mountains", drop: "rock" },
+    { name: "Volcano", drop: "magma" }, { name: "Tundra", drop: "frost", key: true },
+    { name: "Golden Bridge", drop: "royal" }, { name: "FROST RAID", drop: "magnum", raid: true }
+];
+
+/** --- STATE & STORAGE --- **/
+let state = {
+    money: 10000, inventory: [], loadout: [],
+    frostKeys: 0, magnumOpus: 0,
+    crates: { forest: 3, rock: 2, magma: 1, frost: 1, holo: 1, royal: 2 }
+};
+let game = null;
+let mouse = { x: 0, y: 0 };
+
+function aspenOverride() {
+    state.inventory = [];
+    Object.keys(BALL_DB).forEach(tier => {
+        BALL_DB[tier].forEach(ball => {
+            state.inventory.push({...ball, tier: tier, id: Math.random()});
+        });
+    });
+    state.money += 10000000; state.frostKeys += 50; state.magnumOpus += 5;
+    refreshUI();
+}
+
+function switchTab(id) {
+    ['lobby', 'game-container', 'crate-lobby'].forEach(t => document.getElementById(t).classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    if(id === 'crate-lobby') renderCrateLobby();
+}
+
+function refreshUI() {
+    document.getElementById('lobby-money').innerText = state.money.toLocaleString();
+    document.getElementById('mats-display').innerHTML = `FROST KEYS: ${state.frostKeys} | MAGNUM OPUS: ${state.magnumOpus}`;
+    
+    const inv = document.getElementById('inventory-list'); inv.innerHTML = "";
+    state.inventory.forEach(b => {
+        const d = document.createElement('div');
+        d.className = `ball-card ${state.loadout.find(l=>l.id===b.id)?'selected':''}`;
+        d.style.background = TIERS[b.tier]; d.innerText = b.name;
+        d.onclick = () => {
+            if(state.loadout.find(l=>l.id===b.id)) state.loadout = state.loadout.filter(l=>l.id!==b.id);
+            else if(state.loadout.length < 10) state.loadout.push(b);
+            refreshUI();
+        };
+        inv.appendChild(d);
+    });
+
+    const ml = document.getElementById('map-list'); ml.innerHTML = "";
+    MAP_DATA.forEach(m => {
+        const d = document.createElement('div'); d.className = "map-card";
+        const isLocked = m.raid && state.frostKeys <= 0;
+        d.innerHTML = `<b>${m.name}</b><br><button class="btn btn-blue" onclick="launch('${m.name}')" ${isLocked?'disabled':''}>${isLocked?'LOCKED':'DEPLOY'}</button>`;
+        ml.appendChild(d);
+    });
+
+    const cl = document.getElementById('craft-list'); cl.innerHTML = "";
+    const crafts = [
+        { name: "King of Hearts", req: "Prince + Princess + Jester", logic: () => craftUnit("King of Hearts", ["Prince of Hearts", "Princess of Hearts", "JesterBall"], 150000) },
+        { name: "Nunchucks Ball", req: "40x Crusher Balls + $300K", logic: () => craftUnit("Nunchucks Ball", Array(40).fill("Crusher Ball"), 300000) },
+        { name: "Archangel Ball", req: "45x Demon + 45x Angel + $300K + Opus", logic: () => craftArchangel() }
+    ];
+    crafts.forEach(c => {
+        const d = document.createElement('div'); d.className = "craft-card";
+        d.innerHTML = `<b>${c.name}</b><br><small>${c.req}</small><button class="btn btn-gold" style="margin-top:5px" id="btn-${c.name}">CRAFT</button>`;
+        cl.appendChild(d);
+        document.getElementById(`btn-${c.name}`).onclick = c.logic;
+    });
+}
+
+/** --- CRAFTING LOGIC --- **/
+function craftUnit(resultName, ingredientList, cost) {
+    if(state.money < cost) return alert("Not enough cash!");
+    let tempInv = [...state.inventory];
+    let toRemoveIndices = [];
+    for(let ingName of ingredientList) {
+        let idx = tempInv.findIndex(item => item.name === ingName);
+        if(idx === -1) return alert(`Missing: ${ingName}`);
+        tempInv.splice(idx, 1);
+        let realIdx = state.inventory.findIndex((item, i) => item.name === ingName && !toRemoveIndices.includes(i));
+        toRemoveIndices.push(realIdx);
+    }
+    state.money -= cost;
+    toRemoveIndices.sort((a,b) => b-a).forEach(idx => state.inventory.splice(idx, 1));
+    let tier = Object.keys(BALL_DB).find(t => BALL_DB[t].some(b => b.name === resultName));
+    let base = BALL_DB[tier].find(b => b.name === resultName);
+    state.inventory.push({...base, tier: tier, id: Math.random()});
+    alert(`Successfully Crafted ${resultName}!`);
+    refreshUI();
+}
+
+function craftArchangel() {
+    if(state.magnumOpus < 1) return alert("Missing Magnum Opus!");
+    let ingredients = [...Array(45).fill("Demon Ball"), ...Array(45).fill("Angel ball")];
+    craftUnit("Archangel Ball", ingredients, 300000);
+    state.magnumOpus--;
+    refreshUI();
+}
+
+/** --- CRATE LOGIC --- **/
+function renderCrateLobby() {
+    const disp = document.getElementById('crate-display'); disp.innerHTML = "";
+    for(let type in state.crates) {
+        const d = document.createElement('div'); d.className = "section-box"; d.style.textAlign="center";
+        d.innerHTML = `<h3 style="color:#0ff">${type.toUpperCase()}</h3><p>Stock: ${state.crates[type]}</p>
+                       <button class="btn btn-gold" onclick="openCrate('${type}')">OPEN</button>`;
+        disp.appendChild(d);
+    }
+}
+
+function openCrate(type) {
+    if(state.crates[type] <= 0) return;
+    state.crates[type]--;
+    let roll = Math.random();
+    let result;
+    if(type === 'holo' && roll < 0.05) result = {...BALL_DB.MYTHIC[0], tier: "MYTHIC"};
+    else if(type === 'royal' && roll < 0.2) result = {...BALL_DB.TRANSCENDENT[1+Math.floor(Math.random()*2)], tier:"TRANSCENDENT"};
+    else result = {...BALL_DB.COMMON[Math.floor(Math.random()*6)], tier: "COMMON"};
+    state.inventory.push({...result, id: Math.random()});
+    alert(`Unboxed: ${result.name}!`);
+    renderCrateLobby(); refreshUI();
+}
+
+/** --- GAMEPLAY CORE --- **/
+function launch(name) {
+    if(state.loadout.length === 0) return alert("Select balls!");
+    const m = MAP_DATA.find(x => x.name === name);
+    if(m.raid) state.frostKeys--;
+    
+    switchTab('game-container');
+    game = { 
+        active: true, 
+        cash: 2500, 
+        hp: 100, 
+        wave: 1, 
+        towers: [], 
+        enemies: [], 
+        bullets: [], 
+        spawnQ: 10, 
+        map: m, 
+        held: null 
+    };
+    
+    const bar = document.getElementById('game-bar'); bar.innerHTML = "";
+    state.loadout.forEach(b => {
+        const btn = document.createElement('button'); btn.className="btn btn-blue"; btn.style.width="110px";
+        btn.innerHTML=`${b.name}<br>$500`;
+        btn.onclick = () => { 
+            game.held = b; 
+            document.getElementById('build-status').innerText = `PLACING: ${b.name}`;
+        };
+        bar.appendChild(btn);
+    });
+    gameLoop();
+}
+
+function gameLoop() {
+    if(!game || !game.active) return;
+    const ctx = document.getElementById('gameCanvas').getContext('2d');
+    
+    // Wave Logic: Continuous spawning and scaling
+    if(game.spawnQ > 0 && Math.random() < 0.03) {
+        let hpBase = game.map.raid ? 10000 : 300;
+        let enemyHP = hpBase * Math.pow(game.wave, 1.4); // Scaling HP
+        game.enemies.push({ x:0, y:240, hp: enemyHP, max: enemyHP, speed: 1.5 + (game.wave * 0.05) });
+        game.spawnQ--;
+    }
+
+    // Advance to next wave
+    if(game.spawnQ <= 0 && game.enemies.length === 0) {
+        game.wave++;
+        game.spawnQ = 10 + (game.wave * 2);
+        game.cash += 400; // Wave bonus
+    }
+
+    // Combat Logic
+    game.towers.forEach(t => {
+        t.cd = (t.cd || 0) + 1;
+        if(t.cd >= t.rof) {
+            let tar = game.enemies.find(en => Math.hypot(en.x - t.x, en.y - t.y) < t.range);
+            if(tar) {
+                tar.hp -= t.dmg; t.cd = 0;
+                game.bullets.push({x:t.x, y:t.y, tx:tar.x, ty:tar.y, life:5});
+            }
+        }
+    });
+
+    game.enemies = game.enemies.filter(en => {
+        en.x += en.speed;
+        if(en.x >= 960) { game.hp -= 10; return false; }
+        if(en.hp <= 0) { game.cash += 35; return false; }
+        return true;
+    });
+
+    // --- Render Canvas ---
+    ctx.fillStyle = "#050508"; ctx.fillRect(0,0,960,480);
+    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0, 220, 960, 40); // Path
+
+    // Draw Range Preview
+    if (game.held) {
+        ctx.beginPath();
+        ctx.arc(mouse.x, mouse.y, game.held.range, 0, Math.PI*2);
+        ctx.strokeStyle = "rgba(0, 255, 204, 0.4)";
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    game.towers.forEach(t => {
+        ctx.save(); ctx.translate(t.x, t.y);
+        let s = t.scale || 1;
+        ctx.fillStyle = TIERS[t.tier]; ctx.beginPath(); ctx.arc(0,0,18*s,0,7); ctx.fill();
+        if(t.special === "king") { ctx.fillStyle="gold"; ctx.fillRect(-12,-25, 24, 12); }
+        ctx.restore();
+    });
+
+    game.enemies.forEach(en => {
+        ctx.fillStyle="red"; ctx.beginPath(); ctx.arc(en.x, en.y, 12,0,7); ctx.fill();
+        ctx.fillStyle="#222"; ctx.fillRect(en.x-15, en.y-25, 30, 4);
+        ctx.fillStyle="lime"; ctx.fillRect(en.x-15, en.y-25, (en.hp/en.max)*30, 4);
+    });
+
+    // Check Loss
+    if(game.hp <= 0) {
+        alert("BASE DESTROYED! Final Wave: " + game.wave);
+        quitGame();
+        return;
+    }
+
+    document.getElementById('g-stats').innerText = `CASH: $${Math.floor(game.cash)} | HP: ${game.hp} | WAVE: ${game.wave}`;
+    requestAnimationFrame(gameLoop);
+}
+
+document.getElementById('gameCanvas').onmousedown = () => {
+    if(!game.held || game.cash < 500) return;
+    // Path Block (Y 220-260)
+    if(mouse.y > 210 && mouse.y < 270) return;
+    // Overlap Block
+    if(game.towers.some(t => Math.hypot(mouse.x-t.x, mouse.y-t.y) < 35)) return;
+
+    game.towers.push({...game.held, x: mouse.x, y: mouse.y, id:Math.random(), cd:0});
+    game.cash -= 500;
+    game.held = null; // Clear selection after buying
+    document.getElementById('build-status').innerText = `SELECT A BALL TO PLACE`;
+};
+
+document.getElementById('gameCanvas').onmousemove = (e) => {
+    let r = e.target.getBoundingClientRect(); 
+    mouse.x = e.clientX - r.left; 
+    mouse.y = e.clientY - r.top;
+};
+
+function quitGame() {
+    if(game && game.map.raid && Math.random() < 0.1) state.magnumOpus++;
+    if(game) game.active = false;
+    switchTab('lobby');
+    refreshUI();
+}
+
+window.onload = refreshUI;
+</script>
+</body>
+</html>
