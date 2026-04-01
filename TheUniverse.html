@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Fractured Dimension</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        canvas { 
+            display: block; 
+            filter: contrast(2) brightness(1.5) saturate(2) hue-rotate(0deg);
+            animation: hue-pulse 10s infinite linear;
+        }
+        @keyframes hue-pulse {
+            from { filter: contrast(2) hue-rotate(0deg); }
+            to { filter: contrast(2) hue-rotate(360deg); }
+        }
+        #status {
+            position: absolute; color: #fff; font-family: monospace;
+            letter-spacing: 10px; font-size: 10px; bottom: 30px;
+            text-shadow: 0 0 10px #0ff; pointer-events: none; opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="status">DIMENSION: FRACTURED</div>
+
+<script>
+window.onload = function() {
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let isMouseDown = false;
+    let frame = 0;
+
+    const settings = {
+        count: 220,
+        friction: 0.96,
+        gravity: 1.5
+    };
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    window.onmousedown = () => isMouseDown = true;
+    window.onmouseup = () => isMouseDown = false;
+    // Touch support for mobile/tablets
+    window.ontouchstart = () => isMouseDown = true;
+    window.ontouchend = () => isMouseDown = false;
+
+    class Particle {
+        constructor() { this.init(); }
+        init() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.vx = (Math.random() - 0.5) * 10;
+            this.vy = (Math.random() - 0.5) * 10;
+            this.life = Math.random() * 100;
+        }
+        update(m) {
+            if (isMouseDown) {
+                let dx = m.x - this.x;
+                let dy = m.y - this.y;
+                let angle = Math.atan2(dy, dx);
+                this.vx += Math.cos(angle + 0.5) * settings.gravity;
+                this.vy += Math.sin(angle + 0.5) * settings.gravity;
+            }
+            this.vx *= settings.friction;
+            this.vy *= settings.friction;
+            this.x += this.vx;
+            this.y += this.vy;
+            if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+            if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            this.life -= 0.2;
+            if (this.life <= 0) this.init();
+        }
+    }
+
+    const mouse = { x: canvas.width/2, y: canvas.height/2 };
+    window.onmousemove = e => { mouse.x = e.clientX; mouse.y = e.clientY; };
+    window.ontouchmove = e => { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; };
+
+    for(let i=0; i<settings.count; i++) particles.push(new Particle());
+
+    function render() {
+        frame++;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Hyper-Spin Logic
+        ctx.translate(canvas.width/2, canvas.height/2);
+        ctx.rotate(isMouseDown ? frame * 0.05 : frame * 0.001);
+        ctx.translate(-canvas.width/2, -canvas.height/2);
+
+        particles.forEach((p, i) => {
+            p.update(mouse);
+            let speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+            ctx.strokeStyle = `hsla(${200 + speed * 20}, 100%, 60%, ${speed/10})`;
+            ctx.lineWidth = isMouseDown ? speed * 0.5 : 1;
+
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + Math.sin(frame*0.05)*20, p.y + Math.cos(frame*0.05)*20);
+            ctx.stroke();
+
+            if (i % 2 === 0) {
+                let p2 = particles[(i + 1) % particles.length];
+                let dist = Math.sqrt((p.x-p2.x)**2 + (p.y-p2.y)**2);
+                if (dist < 120) {
+                    ctx.shadowBlur = isMouseDown ? 15 : 0;
+                    ctx.shadowColor = '#0ff';
+                    ctx.strokeStyle = `hsla(${frame % 360}, 100%, 50%, ${1 - dist/120})`;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+            }
+        });
+        requestAnimationFrame(render);
+    }
+    render();
+};
+</script>
+</body>
+</html>

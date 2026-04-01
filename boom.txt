@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NEON PULSE SHOCKWAVE</title>
+    <style>
+        body { margin: 0; background: #010103; overflow: hidden; }
+        canvas { display: block; filter: contrast(1.4) brightness(1.2) saturate(1.6); }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let pulses = []; // This will hold our shockwaves
+    let isMouseDown = false;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.onresize = resize;
+    resize();
+
+    // Trigger pulse on click
+    window.onmousedown = (e) => {
+        isMouseDown = true;
+        pulses.push(new Pulse(e.clientX, e.clientY));
+    };
+    window.onmouseup = () => isMouseDown = false;
+
+    class Pulse {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.r = 0; // Starting radius
+            this.maxR = 500; // How far it spreads
+            this.velocity = 10;
+            this.life = 1.0;
+        }
+        update() {
+            this.r += this.velocity;
+            this.life -= 0.02; // Fades away
+        }
+        draw() {
+            ctx.strokeStyle = `rgba(0, 255, 255, ${this.life})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    class Particle {
+        constructor() { this.init(); }
+        init() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.vx = (Math.random() - 0.5) * 4;
+            this.vy = (Math.random() - 0.5) * 4;
+            this.h = 190;
+        }
+        update(m, activePulses) {
+            // Check if a pulse is hitting the particle
+            activePulses.forEach(p => {
+                let dx = this.x - p.x;
+                let dy = this.y - p.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                
+                // If the ring passes through the particle, boost speed!
+                if (Math.abs(dist - p.r) < 20) {
+                    this.vx += (dx / dist) * 5;
+                    this.vy += (dy / dist) * 5;
+                    this.h = 0; // Turn Red/Orange on impact
+                }
+            });
+
+            if (isMouseDown) {
+                let dx = m.x - this.x;
+                let dy = m.y - this.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                this.vx += (dx / dist) * 0.5;
+                this.vy += (dy / dist) * 0.5;
+            }
+
+            this.vx *= 0.97;
+            this.vy *= 0.97;
+            this.x += this.vx;
+            this.y += this.vy;
+            this.h += (190 - this.h) * 0.1; // Slowly return to blue
+
+            if (this.x < 0) this.x = canvas.width;
+            if (this.x > canvas.width) this.x = 0;
+            if (this.y < 0) this.y = canvas.height;
+            if (this.y > canvas.height) this.y = 0;
+        }
+        draw() {
+            let speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            ctx.strokeStyle = `hsla(${this.h}, 100%, 60%, ${0.4 + speed/15})`;
+            ctx.lineWidth = 1 + speed / 4;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.x - this.vx * 2, this.y - this.vy * 2);
+            ctx.stroke();
+        }
+    }
+
+    for(let i = 0; i < 180; i++) particles.push(new Particle());
+    const mouse = { x: 0, y: 0 };
+    window.onmousemove = e => { mouse.x = e.clientX; mouse.y = e.clientY; };
+
+    function loop() {
+        ctx.fillStyle = 'rgba(1, 1, 3, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Update and draw pulses
+        pulses = pulses.filter(p => p.life > 0);
+        pulses.forEach(p => {
+            p.update();
+            p.draw();
+        });
+
+        particles.forEach(p => {
+            p.update(mouse, pulses);
+            p.draw();
+        });
+        
+        requestAnimationFrame(loop);
+    }
+    loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CYBER-GRID WARP</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #020205; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+        }
+        canvas { 
+            display: block; 
+            /* This filter makes the neon colors pop against the dark background */
+            filter: contrast(1.5) brightness(1.2) saturate(1.5);
+        }
+        #overlay {
+            position: absolute;
+            color: #0ff;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            letter-spacing: 5px;
+            bottom: 20px;
+            pointer-events: none;
+            text-transform: uppercase;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+<div id="overlay">Quantum Field: Active // Hold Mouse to Distort</div>
+<canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let isMouseDown = false;
+    let frame = 0;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.onresize = resize;
+    resize();
+
+    window.onmousedown = () => isMouseDown = true;
+    window.onmouseup = () => isMouseDown = false;
+
+    class Particle {
+        constructor() { this.init(); }
+        init() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.vx = (Math.random() - 0.5) * 4;
+            this.vy = (Math.random() - 0.5) * 4;
+            this.hue = Math.random() * 60 + 170; // Cyan to Blue range
+        }
+        update(m) {
+            if (isMouseDown) {
+                let dx = m.x - this.x;
+                let dy = m.y - this.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                // Gravity well logic
+                this.vx += (dx / dist) * 0.8;
+                this.vy += (dy / dist) * 0.8;
+            }
+            this.vx *= 0.96;
+            this.vy *= 0.96;
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // Warp around screen edges
+            if (this.x < 0) this.x = canvas.width;
+            if (this.x > canvas.width) this.x = 0;
+            if (this.y < 0) this.y = canvas.height;
+            if (this.y > canvas.height) this.y = 0;
+        }
+        draw() {
+            let speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            ctx.strokeStyle = `hsla(${this.hue + speed * 10}, 100%, 60%, ${0.3 + speed/15})`;
+            ctx.lineWidth = 1 + speed / 5;
+            
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            // Stretching effect: the line grows based on velocity
+            ctx.lineTo(this.x - this.vx * 3, this.y - this.vy * 3);
+            ctx.stroke();
+        }
+    }
+
+    for(let i = 0; i < 200; i++) particles.push(new Particle());
+
+    const mouse = { x: canvas.width/2, y: canvas.height/2 };
+    window.onmousemove = e => { mouse.x = e.clientX; mouse.y = e.clientY; };
+
+    function drawGrid() {
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        let spacing = 50;
+        let shiftX = (frame * 0.5) % spacing;
+        
+        // Draw Vertical Lines
+        for (let x = shiftX; x < canvas.width; x += spacing) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+        // Draw Horizontal Lines
+        for (let y = 0; y < canvas.height; y += spacing) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+    }
+
+    function loop() {
+        frame++;
+        // Fade effect for trails
+        ctx.fillStyle = 'rgba(2, 2, 5, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        drawGrid();
+
+        particles.forEach(p => {
+            p.update(mouse);
+            p.draw();
+        });
+        
+        requestAnimationFrame(loop);
+    }
+    loop();
+</script>
+</body>
+</html>

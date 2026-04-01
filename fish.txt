@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Legendary Fishing - Admin</title>
+    <style>
+        body { background: #111; color: white; font-family: monospace; text-align: center; margin: 0; }
+        #ui { background: #222; padding: 10px; border-bottom: 3px solid #00d2ff; }
+        canvas { background: #004466; display: block; margin: 10px auto; border: 3px solid #fff; }
+        .stat { font-size: 20px; margin: 0 15px; color: #ffeb3b; }
+        
+        /* Secret Admin Panel */
+        #admin {
+            position: absolute; top: 80px; left: 10px; width: 180px;
+            background: rgba(0, 0, 0, 0.9); border: 2px solid red;
+            padding: 15px; text-align: left; display: none; z-index: 200;
+        }
+        #admin h3 { color: red; margin-top: 0; font-size: 14px; }
+        #admin input { width: 60px; background: #333; color: #0f0; border: 1px solid #555; margin-bottom: 10px; }
+        #admin button { cursor: pointer; background: #444; color: white; border: 1px solid #777; width: 100%; }
+
+        #over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                background: rgba(0,0,0,0.9); padding: 30px; display: none; border: 4px solid gold; z-index: 100; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <span class="stat">SCORE: <id id="sc">0</id></span>
+        <span class="stat">TIME: <id id="tm">60</id></span>
+    </div>
+
+    <div id="admin">
+        <h3>ADMIN PANEL</h3>
+        Score: <input type="number" id="setScore" value="0">
+        <button onclick="applyScore()">SET SCORE</button>
+        <br><br>
+        Time: <input type="number" id="setTime" value="60">
+        <button onclick="applyTime()">SET TIME</button>
+        <p style="font-size: 10px; color: #888;">Type 'hi' again to hide</p>
+    </div>
+
+    <div id="over">
+        <h1 style="color:gold">TIME'S UP!</h1>
+        <p id="finalScore"></p>
+        <button onclick="location.reload()">PLAY AGAIN</button>
+    </div>
+
+    <canvas id="f" width="600" height="400"></canvas>
+    <p>Type "hi" on your keyboard to toggle Admin Menu</p>
+
+<script>
+    const canvas = document.getElementById('f');
+    const ctx = canvas.getContext('2d');
+    
+    let score = 0;
+    let time = 60;
+    let active = true;
+    let inputBuffer = ""; // To track secret word
+
+    const hook = { x: 300, y: 50 };
+    const keys = {};
+    const entities = [];
+
+    // --- ADMIN FUNCTIONS ---
+    function applyScore() {
+        score = parseInt(document.getElementById('setScore').value) || 0;
+        document.getElementById('sc').innerText = score;
+    }
+
+    function applyTime() {
+        time = parseInt(document.getElementById('setTime').value) || 0;
+        document.getElementById('tm').innerText = time;
+        if (time > 0 && !active) { // Resume game if it was over
+            active = true;
+            document.getElementById('over').style.display = 'none';
+            startTimer();
+        }
+    }
+
+    // --- INPUT HANDLING ---
+    window.onkeydown = e => {
+        keys[e.code] = true;
+        
+        // Tracking secret code "hi"
+        inputBuffer += e.key.toLowerCase();
+        if (inputBuffer.endsWith("hi")) {
+            const panel = document.getElementById('admin');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        }
+        if (inputBuffer.length > 5) inputBuffer = inputBuffer.substring(1);
+    };
+    window.onkeyup = e => keys[e.code] = false;
+
+    // --- GAME ENGINE ---
+    let tInterval;
+    function startTimer() {
+        if (tInterval) clearInterval(tInterval);
+        tInterval = setInterval(() => {
+            if(time > 0) {
+                time--;
+                document.getElementById('tm').innerText = time;
+            } else if (active) {
+                active = false;
+                document.getElementById('finalScore').innerText = "Final Score: " + score;
+                document.getElementById('over').style.display = 'block';
+                clearInterval(tInterval);
+            }
+        }, 1000);
+    }
+    startTimer();
+
+    function spawn() {
+        if(!active) return;
+        let rand = Math.random();
+        let type = "normal", color = `hsl(${Math.random() * 360}, 70%, 60%)`, size = 15, speed = 2, points = 20;
+
+        if (rand < 0.05) { type = "mega"; color = "#00ffcc"; size = 60; speed = 0.8; points = 250; }
+        else if (rand < 0.15) { type = "gold"; color = "gold"; size = 10; speed = 7; points = 100; }
+        else if (rand < 0.30) { type = "boot"; color = "#5d4037"; size = 25; speed = 1.2; points = -50; }
+
+        entities.push({ x: -100, y: 80 + Math.random() * 280, speed, size, color, type, points, caught: false });
+        setTimeout(spawn, 1000 + Math.random() * 1000);
+    }
+    spawn();
+
+    function update() {
+        if(keys['ArrowLeft'] && hook.x > 15) hook.x -= 5;
+        if(keys['ArrowRight'] && hook.x < 585) hook.x += 5;
+        if(keys['ArrowUp'] && hook.y > 50) hook.y -= 5;
+        if(keys['ArrowDown'] && hook.y < 385) hook.y += 5;
+
+        for(let i = entities.length - 1; i >= 0; i--) {
+            let e = entities[i];
+            if(!e.caught) {
+                e.x += e.speed;
+                if(Math.hypot(hook.x - (e.x + e.size), hook.y - e.y) < e.size + 5) e.caught = true;
+            } else {
+                e.x = hook.x - e.size; e.y = hook.y;
+                if(hook.y <= 60) {
+                    score += e.points;
+                    document.getElementById('sc').innerText = score;
+                    entities.splice(i, 1);
+                }
+            }
+            if(e.x > 700) entities.splice(i, 1);
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, 600, 400);
+        ctx.fillStyle = "#001a33"; ctx.fillRect(0, 50, 600, 350);
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(hook.x, 0); ctx.lineTo(hook.x, hook.y); ctx.stroke();
+        ctx.strokeStyle = "#eee"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(hook.x, hook.y, 8, 0, Math.PI); ctx.stroke();
+
+        entities.forEach(e => {
+            ctx.fillStyle = e.color;
+            ctx.beginPath();
+            ctx.ellipse(e.x + e.size, e.y, e.size, e.size/1.8, 0, 0, Math.PI*2);
+            ctx.fill();
+        });
+    }
+
+    function gameLoop() {
+        if(active) update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+</script>
+</body>
+</html>
