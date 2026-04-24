@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farming Simulator Relax Now 🌿</title>
+    <style>
+        :root {
+            --grass: #91cf60;
+            --dirt: #8b5a2b;
+            --text: #2d4a22;
+            --accent: #ffb703;
+            --shop-bg: #fff3e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f9eb;
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .header { text-align: center; margin-bottom: 10px; }
+        .new-code-text { 
+            font-weight: bold; 
+            color: #e63946; 
+            margin-top: -5px; 
+            margin-bottom: 5px; 
+            letter-spacing: 1px;
+            font-size: 1.1rem;
+        }
+        
+        #admin-timer {
+            display: none;
+            color: #d62828;
+            font-weight: bold;
+            background: #ffdde1;
+            padding: 8px 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #d62828;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .stats-container {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: white;
+            padding: 10px 25px;
+            border-radius: 50px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #btn-harvest-all {
+            display: none; 
+            background-color: #e63946;
+            font-size: 1.2rem;
+            padding: 10px 20px;
+            width: auto;
+        }
+
+        #all-farms {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            max-width: 900px;
+            margin-bottom: 25px;
+        }
+
+        .farm-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 80px);
+            grid-template-rows: repeat(3, 80px);
+            gap: 10px;
+            background: #a8dadc;
+            padding: 12px;
+            border-radius: 15px;
+            box-shadow: inset 0 0 12px rgba(0,0,0,0.1);
+        }
+
+        .plot {
+            width: 80px;
+            height: 80px;
+            background-color: var(--grass);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            cursor: pointer;
+            transition: transform 0.1s;
+            user-select: none;
+            border: 4px solid rgba(255,255,255,0.3);
+        }
+
+        .plot.empty { background-color: var(--dirt); }
+        .plot.growing { background-color: #6d4c41; }
+        .plot.ready { background-color: #d4a373; border-color: var(--accent); }
+
+        .shop-toggle { background-color: #457b9d; font-size: 1.2rem; width: 280px; margin-bottom: 10px; }
+
+        .shop {
+            display: none;
+            background-color: var(--shop-bg);
+            padding: 20px;
+            border-radius: 15px;
+            width: 350px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+        .shop.open { display: block; }
+
+        .shop-items-container {
+            max-height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover:not(:disabled) { background-color: #f57c00; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .equipped { background-color: #2a9d8f !important; }
+
+        .save-controls { margin-top: 40px; display: flex; gap: 15px; }
+        .btn-save { background-color: #43a047; width: auto; }
+        .btn-reset { background-color: #e53935; width: auto; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Farming Simulator Relax Now</h1>
+        <div id="code-hint" class="new-code-text">Type admin for a 60 second speed boost!</div>
+        <p>Current Crop: <span id="current-crop-display">🍎</span> | Base Growth: <span id="growth-time-display">3.0</span>s</p>
+    </div>
+
+    <div id="admin-timer">ADMIN POWER ACTIVE: <span id="timer-secs">60</span>s</div>
+
+    <div class="stats-container">
+        <div class="stats">Gold: <span id="gold-count">0</span> 🪙</div>
+        <button id="btn-harvest-all" onclick="harvestAll()">Harvest All 🌾</button>
+    </div>
+
+    <div id="all-farms"></div>
+
+    <button class="shop-toggle" onclick="toggleShop()">🛒 Open Shop Tab</button>
+
+    <div class="shop" id="shop-container">
+        <h3 style="margin-top:0; color:#d84315;">Town Mega-Shop 🛒</h3>
+        <div class="shop-items-container" id="shop-list"></div>
+    </div>
+
+    <div class="save-controls">
+        <button class="btn-save" onclick="saveGame()">💾 Save Game</button>
+        <button class="btn-reset" onclick="resetGame()">🧹 Reset Progress</button>
+    </div>
+
+    <script>
+        let gold = 0;
+        let baseGrowthTime = 3000; 
+        let currentGrowthTime = 3000;
+        let cropYield = 10;    
+        let cropEmoji = '🍎';  
+        let plotPrice = 2567;
+        let plots = []; 
+        let hasSickle = false;
+        
+        // Admin restriction variables
+        let isAdminActive = false;
+        let hasUsedAdmin = false; 
+        let inputBuffer = "";
+
+        const shopData = [];
+
+        // --- Keyboard Admin Cheat ---
+        window.addEventListener('keydown', (e) => {
+            // Block input if already used or currently active
+            if (hasUsedAdmin || isAdminActive) return;
+
+            inputBuffer += e.key.toLowerCase();
+            if (inputBuffer.includes("admin")) {
+                activateAdminBoost();
+                inputBuffer = ""; 
+            }
+            if (inputBuffer.length > 10) inputBuffer = inputBuffer.slice(-5);
+        });
+
+        function activateAdminBoost() {
+            if (isAdminActive || hasUsedAdmin) return;
+            
+            isAdminActive = true;
+            hasUsedAdmin = true; // Mark as used forever (this session)
+            
+            currentGrowthTime = baseGrowthTime / 2;
+            
+            const timerDiv = document.getElementById('admin-timer');
+            const timerSecs = document.getElementById('timer-secs');
+            const hintText = document.getElementById('code-hint');
+            
+            timerDiv.style.display = 'block';
+            hintText.innerText = "CODE USED: Speed Boost Active!";
+            hintText.style.color = "#888";
+            
+            let timeLeft = 60;
+            timerSecs.innerText = timeLeft;
+
+            const countdown = setInterval(() => {
+                timeLeft--;
+                timerSecs.innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                    isAdminActive = false;
+                    currentGrowthTime = baseGrowthTime;
+                    timerDiv.style.display = 'none';
+                    hintText.innerText = "Admin Code: [EXPIRED]";
+                    updateHeader();
+                    saveGame(); // Save the fact that it was used
+                }
+            }, 1000);
+
+            updateHeader();
+        }
+
+        function generateShopData() {
+            shopData.length = 0; 
+            shopData.push({ id: 'tool_sickle', name: 'Golden Sickle', type: 'tool', price: 1000, desc: 'Unlocks Harvest All button', bought: false });
+            shopData.push({ id: 'expansion_plot', name: 'Buy 3x3 Plot', type: 'expansion', price: plotPrice, desc: 'Adds a full 9-grid farm!' });
+            for(let i=1; i<=10; i++) {
+                shopData.push({ id: `speed_${i}`, name: `Fertilizer Tier ${i}`, type: 'speed', price: 200 * Math.pow(2, i-1), desc: `Speeds up growth by 15%`, bought: false });
+            }
+            const emojis = ['🍓','🍅','🍆','🌽','🥕','🥔','🍠','🥒','🥬','🥦','🍄','🥜','🌰','🍉','🍇','🍈','🍊','🍋','🍌','🍍','🥭','🍏','🍐','🍑','🍒'];
+            const adjectives = ['Wild', 'Sweet', 'Spicy', 'Sour', 'Golden', 'Crystal', 'Quantum', 'Cosmic', 'Galactic', 'Divine', 'Astral', 'Supreme', 'Omega'];
+            let sPrice = 150; let sYield = 30;
+            for(let i=0; i<138; i++) {
+                let emoji = emojis[i % emojis.length];
+                let adj = adjectives[Math.floor(i / emojis.length) % adjectives.length] || 'Infinite';
+                shopData.push({ id: `seed_${i}`, name: `${adj} ${emoji} (Lv.${i+1})`, type: 'seed', price: Math.floor(sPrice), yield: Math.floor(sYield), emoji: emoji, desc: `Yield: ${Math.floor(sYield).toLocaleString()}g`, bought: false });
+                sPrice *= 1.25; sYield *= 1.20; 
+            }
+        }
+
+        function saveGame() {
+            const gameState = {
+                gold, baseGrowthTime, cropYield, cropEmoji, plotPrice, hasSickle, hasUsedAdmin,
+                plotCount: plots.length,
+                shopBoughtIds: shopData.filter(item => item.bought).map(item => item.id)
+            };
+            localStorage.setItem('cozyAcresSave', JSON.stringify(gameState));
+        }
+
+        function loadGame() {
+            const saved = localStorage.getItem('cozyAcresSave');
+            if (!saved) { initNewGame(); return; }
+            const state = JSON.parse(saved);
+            gold = state.gold;
+            baseGrowthTime = state.baseGrowthTime;
+            currentGrowthTime = baseGrowthTime;
+            cropYield = state.cropYield;
+            cropEmoji = state.cropEmoji;
+            plotPrice = state.plotPrice;
+            hasSickle = state.hasSickle;
+            hasUsedAdmin = state.hasUsedAdmin || false;
+
+            if(hasUsedAdmin) {
+                const hintText = document.getElementById('code-hint');
+                hintText.innerText = "Admin Code: [EXPIRED]";
+                hintText.style.color = "#888";
+            }
+
+            generateShopData();
+            state.shopBoughtIds.forEach(id => {
+                const item = shopData.find(i => i.id === id);
+                if (item) item.bought = true;
+            });
+
+            document.getElementById('all-farms').innerHTML = '';
+            plots = [];
+            if (state.plotCount === 1) { createGrid(1); } 
+            else { createGrid(1); let extra = state.plotCount - 1; for (let i = 0; i < extra / 9; i++) createGrid(9); }
+
+            if (hasSickle) document.getElementById('btn-harvest-all').style.display = 'block';
+            updateGoldDisplay();
+            updateHeader();
+            renderShop();
+        }
+
+        function resetGame() {
+            if(confirm("Are you sure? This will delete your entire farm!")) {
+                localStorage.removeItem('cozyAcresSave');
+                location.reload();
+            }
+        }
+
+        function initNewGame() {
+            generateShopData();
+            createGrid(1);
+            renderShop();
+            updateHeader();
+        }
+
+        function createGrid(numPlots) {
+            const container = document.getElementById('all-farms');
+            const newGrid = document.createElement('div');
+            newGrid.className = 'farm-grid';
+            if (numPlots === 1) { newGrid.style.gridTemplateColumns = '80px'; newGrid.style.gridTemplateRows = '80px'; }
+            for(let i=0; i<numPlots; i++) {
+                const index = plots.length;
+                plots.push('empty');
+                const plotDiv = document.createElement('div');
+                plotDiv.className = 'plot empty';
+                plotDiv.id = `plot-${index}`;
+                plotDiv.onclick = () => handlePlotClick(index);
+                newGrid.appendChild(plotDiv);
+            }
+            container.appendChild(newGrid);
+        }
+
+        function handlePlotClick(index) {
+            if (plots[index] === 'empty') plantSeed(index);
+            else if (plots[index] === 'ready') harvestCrop(index);
+        }
+
+        function plantSeed(index) {
+            plots[index] = 'growing';
+            updatePlotUI(index);
+            setTimeout(() => {
+                if(plots[index] === 'growing') { plots[index] = 'ready'; updatePlotUI(index); }
+            }, currentGrowthTime);
+        }
+
+        function harvestCrop(index) {
+            plots[index] = 'empty';
+            gold += cropYield;
+            updateGoldDisplay();
+            updatePlotUI(index);
+        }
+
+        function harvestAll() {
+            plots.forEach((p, i) => { if(p === 'ready') { plots[i] = 'empty'; gold += cropYield; updatePlotUI(i); } });
+            updateGoldDisplay();
+        }
+
+        function updatePlotUI(index) {
+            const plotDiv = document.getElementById(`plot-${index}`);
+            if(!plotDiv) return;
+            plotDiv.className = `plot ${plots[index]}`;
+            plotDiv.innerText = plots[index] === 'growing' ? '🌱' : (plots[index] === 'ready' ? cropEmoji : '');
+        }
+
+        function updateGoldDisplay() {
+            document.getElementById('gold-count').innerText = Math.floor(gold).toLocaleString();
+            updateShopButtons();
+        }
+
+        function updateHeader() {
+            document.getElementById('current-crop-display').innerText = cropEmoji;
+            document.getElementById('growth-time-display').innerText = (currentGrowthTime / 1000).toFixed(2);
+        }
+
+        function toggleShop() {
+            const shop = document.getElementById('shop-container');
+            shop.classList.toggle('open');
+            document.querySelector('.shop-toggle').innerText = shop.classList.contains('open') ? "❌ Close Shop" : "🛒 Open Shop";
+        }
+
+        function renderShop() {
+            const list = document.getElementById('shop-list');
+            list.innerHTML = ''; 
+            shopData.forEach((item, index) => {
+                const btn = document.createElement('button');
+                btn.id = `shop-btn-${index}`;
+                let price = item.type === 'expansion' ? plotPrice : item.price;
+                btn.innerHTML = item.bought && item.type !== 'seed' ? `✅ Sold: ${item.name}` : `<strong>${item.name}</strong> - ${Math.floor(price).toLocaleString()}g<br><small>${item.desc}</small>`;
+                if (item.type === 'seed' && cropEmoji === item.emoji && cropYield === item.yield) btn.classList.add('equipped');
+                btn.onclick = () => buyItem(index);
+                list.appendChild(btn);
+            });
+            updateShopButtons();
+        }
+
+        function updateShopButtons() {
+            shopData.forEach((item, index) => {
+                const btn = document.getElementById(`shop-btn-${index}`);
+                if (!btn) return;
+                let price = item.type === 'expansion' ? plotPrice : item.price;
+                btn.disabled = (gold < price) || (item.bought && item.type !== 'seed');
+            });
+        }
+
+        function buyItem(index) {
+            const item = shopData[index];
+            let price = item.type === 'expansion' ? plotPrice : item.price;
+            if (gold >= price) {
+                gold -= price;
+                if (item.type === 'tool') { item.bought = true; hasSickle = true; document.getElementById('btn-harvest-all').style.display = 'block'; }
+                else if (item.type === 'expansion') { createGrid(9); plotPrice = Math.floor(plotPrice * 2.5); generateShopData(); }
+                else if (item.type === 'speed') { item.bought = true; baseGrowthTime *= 0.85; currentGrowthTime = isAdminActive ? baseGrowthTime / 2 : baseGrowthTime; }
+                else if (item.type === 'seed') { cropYield = item.yield; cropEmoji = item.emoji; }
+                updateGoldDisplay(); updateHeader(); renderShop();
+                saveGame();
+            }
+        }
+
+        setInterval(saveGame, 30000);
+        loadGame();
+    </script>
+</body>
+</html>
