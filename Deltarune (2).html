@@ -1,0 +1,44 @@
+<script>
+    // --- Save System Logic ---
+    const SAVE_KEY = "deltarune_save_data";
+
+    function saveGame(data) {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+        console.log("Game Saved.");
+    }
+
+    function loadGame() {
+        const data = localStorage.getItem(SAVE_KEY);
+        return data ? JSON.parse(data) : null;
+    }
+    // -------------------------
+
+    launch();
+
+    function launch() {
+      try {
+        fetch("https://cdn.jsdelivr.net/gh/regedit-sys/web-port@main/deltarune/free.html?t="+Date.now())
+          .then(response => response.text())
+          .then(html => {
+                // We keep the original logic exactly as is
+                document.documentElement.innerHTML = html;
+
+                document.documentElement.querySelectorAll('script').forEach(oldScript => {
+                    const newScript = document.createElement('script');
+                    if (oldScript.src) {
+                        newScript.src = oldScript.src;
+                    } else {
+                        newScript.textContent = oldScript.textContent;
+                    }
+                    document.body.appendChild(newScript);
+                });
+
+                // Note: For the save to work, the game being fetched must 
+                // utilize the browser's LocalStorage or IndexedDB.
+                console.log("Persistence layer active.");
+          });
+      } catch (error) {
+        console.error('error:', error);
+      }
+    }
+</script>
