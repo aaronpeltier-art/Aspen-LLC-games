@@ -2,122 +2,177 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cozy Acres: Empire 🌿</title>
+    <title>Cheese Clicker: Hall of Fame</title>
     <style>
-        :root {
-            --grass: #91cf60;
-            --dirt: #8b5a2b;
-            --text: #2d4a22;
-            --accent: #ffb703;
-            --shop-bg: #fff3e0;
+        body { background: #111; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; height: 100vh; overflow: hidden; }
+        #click-sec { flex: 1; border-right: 5px solid #444; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #222; position: relative; }
+        #shop-sec { width: 480px; overflow-y: auto; padding: 10px; background: #0a0a0a; display: flex; flex-direction: column; }
+        #cheese { font-size: 150px; cursor: pointer; user-select: none; transition: transform 0.05s; z-index: 10; filter: drop-shadow(0 0 10px #ffcc00); }
+        #cheese:active { transform: scale(0.9); }
+        h1 { margin: 0; font-size: 3rem; color: #ffcc00; text-shadow: 2px 2px #000; }
+        .stats-bar { text-align: center; margin-bottom: 30px; }
+
+        /* Hall of Fame UI */
+        #hof-box { background: #222; border: 1px solid #ffcc00; padding: 10px; margin-bottom: 10px; border-radius: 5px; font-size: 13px; }
+        .hof-title { color: #ffcc00; font-weight: bold; text-align: center; display: block; margin-bottom: 5px; text-transform: uppercase; }
+
+        /* End Screen */
+        #end-screen { 
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: white; color: black; display: none; flex-direction: column; 
+            align-items: center; justify-content: center; z-index: 1000; 
+            opacity: 0; transition: opacity 2s; text-align: center;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f9eb;
-            color: var(--text);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 0;
-            padding: 20px;
-        }
-
-        .header { text-align: center; margin-bottom: 5px; }
-
-        /* --- Save UI --- */
-        .save-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .save-controls button {
-            background-color: #457b9d;
-            width: auto;
-            padding: 5px 15px;
-            font-size: 0.9rem;
-            margin: 0;
-        }
+        .upg { background: #333; border: 2px solid #555; padding: 12px; margin: 8px 0; cursor: pointer; display: flex; justify-content: space-between; border-radius: 8px; }
+        .upg.can-afford { border-color: #ffcc00; background: #3d3410; }
+        .upg.cannot-afford { opacity: 0.4; cursor: not-allowed; }
+        .upg-info b { color: #ffcc00; display: block; }
         
-        .save-controls button.danger { background-color: #e63946; }
-        .save-controls button:hover { opacity: 0.8; }
+        .tab-container { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+        .tab { flex: 1; min-width: 60px; padding: 8px; background: #222; text-align: center; cursor: pointer; border-radius: 5px; font-size: 9px; }
+        .tab.active { background: #ffcc00; color: #000; }
+        .hidden { display: none !important; }
+        #admin-btn { position: absolute; bottom: 10px; left: 10px; opacity: 0.2; cursor: pointer; font-size: 10px; }
+    </style>
+</head>
+<body>
 
-        .stats-container {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            margin-bottom: 20px;
+    <div id="end-screen">
+        <h2 id="end-header">THE BIG BANG</h2>
+        <p id="end-msg"></p>
+        <button onclick="location.reload()" style="padding:15px; cursor:pointer;">START OVER</button>
+        <button onclick="document.getElementById('end-screen').style.display='none'" style="padding:15px; cursor:pointer;">CONTINUE</button>
+    </div>
+
+    <div id="click-sec">
+        <div class="stats-bar">
+            <h1 id="display-cheese">0 Cheese</h1>
+            <p id="display-cps" style="font-size: 1.2rem; color: #aaa;">per second: 0.0</p>
+            <p id="timer" style="color: #666;">Time: 0s</p>
+        </div>
+        <div id="cheese">🧀</div>
+        <div id="admin-btn" onclick="openAdmin()">Admin</div>
+    </div>
+
+    <div id="shop-sec">
+        <div id="hof-box">
+            <span class="hof-title">🏆 Hall of Fame 🏆</span>
+            <div id="hof-list">No records yet.</div>
+        </div>
+
+        <div class="tab-container">
+            <div id="tab1" class="tab active" onclick="switchTab(1)">Dairy</div>
+            <div id="tab2" class="tab hidden" onclick="switchTab(2)">Factory</div>
+            <div id="tab3" class="tab hidden" onclick="switchTab(3)">Empire</div>
+            <div id="tab4" class="tab hidden" onclick="switchTab(4)">God</div>
+            <div id="tab5" class="tab hidden" onclick="switchTab(5)">Demon</div>
+            <div id="tab6" class="tab hidden" onclick="switchTab(6)">Angel</div>
+            <div id="tab7" class="tab hidden" onclick="switchTab(7)">CELESTIAL</div>
+        </div>
+        <div id="cont-1"></div><div id="cont-2" class="hidden"></div><div id="cont-3" class="hidden"></div>
+        <div id="cont-4" class="hidden"></div><div id="cont-5" class="hidden"></div><div id="cont-6" class="hidden"></div>
+        <div id="cont-7" class="hidden"></div>
+    </div>
+
+    <script>
+        let score = 0, cps = 0, startTime = Date.now();
+        
+        // Load HOF
+        function updateHOFUI() {
+            const best = localStorage.getItem('cheeseBestTime');
+            document.getElementById('hof-list').innerHTML = best ? `Fastest Ascension: <b>${best}s</b>` : "Ascend to make history.";
         }
 
-        .stats {
-            font-size: 1.5rem;
-            font-weight: bold;
-            background: white;
-            padding: 10px 20px;
-            border-radius: 50px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: color 0.2s;
+        const baseShops = {
+            s1: [{ name: "Mouse Hole", cost: 15, add: 0.1 }, { name: "Cheese Slicer", cost: 100, add: 1 }, { name: "Store Clerk", cost: 1100, add: 8 }, { name: "Dairy Farm", cost: 12000, add: 47 }, { name: "Cheese Vat", cost: 1.3e5, add: 260 }, { name: "Aged Cellar", cost: 1.4e6, add: 1400 }, { name: "Industrial Press", cost: 2e7, add: 7800 }, { name: "Cheese Rocket", cost: 3.3e8, add: 44000 }, { name: "Moon Mine", cost: 5.1e9, add: 260000 }, { name: "Molecular Bonder", cost: 7.5e10, add: 1.6e6 }, { name: "Galactic Grater", cost: 1e12, add: 1e7 }, { name: "Time Culture", cost: 1.4e13, add: 6.5e7 }, { name: "Infinite Whey", cost: 1.7e14, add: 4.3e8 }, { name: "Cheddar Rift", cost: 2.1e15, add: 2.9e9 }, { name: "Local Monopoly", cost: 2.6e16, add: 2.1e10 }],
+            s2: Array.from({length: 15}, (_, i) => ({ name: "Factory "+(i+1), cost: 1e17*Math.pow(10, i), add: 5e11*Math.pow(10, i) })),
+            s3: Array.from({length: 14}, (_, i) => ({ name: "Empire "+(i+1), cost: 1e32*Math.pow(10, i), add: 1e27*Math.pow(10, i) })).concat([{ name: "Cheese God Ascension", cost: 5e46, add: 1e41 }]),
+            s4: Array.from({length: 14}, (_, i) => ({ name: "God Tier "+(i+1), cost: 1e47*Math.pow(10, i*2), add: 1e42*Math.pow(10, i*2) })).concat([{ name: "Archangel Ascension", cost: 1e76, add: 1e71 }]),
+            dem: Array.from({length: 15}, (_, i) => ({ name: i===14?"SHRINE":"Demon "+(i+1), cost: 1e77*Math.pow(10, i*5), add: 1e72*Math.pow(10, i*5) })),
+            ang: Array.from({length: 15}, (_, i) => ({ name: i===14?"LADDER":"Angel "+(i+1), cost: 1e77*Math.pow(10, i*5), add: 1e72*Math.pow(10, i*5) })),
+            cel: [{ name: "Nebula Nacho", cost: 1e150, add: 1e145 }, { name: "Quasar Queso", cost: 1e180, add: 1e175 }, { name: "Supernova Swiss", cost: 1e210, add: 1e205 }, { name: "Universe Eater", cost: 1e250, add: 1e245 }, { name: "THE BIG BANG", cost: 1e300, add: 1e295, isEnd: true }]
+        };
+
+        let inv = JSON.parse(JSON.stringify(baseShops));
+
+        function buy(type, i) {
+            let item = inv[type][i];
+            if (score >= item.cost) {
+                score -= item.cost;
+                item.owned = (item.owned || 0) + 1;
+                item.cost *= 1.15;
+                if (item.isEnd) finishGame();
+                if (type==='s3' && i===14) document.getElementById('tab4').classList.remove('hidden');
+                if (type==='s4' && i===14) { document.getElementById('tab5').classList.remove('hidden'); document.getElementById('tab6').classList.remove('hidden'); switchTab(5); }
+                if ((type==='dem' || type==='ang') && i===14) document.getElementById('tab7').classList.remove('hidden');
+                updateStats(); refreshUI();
+            }
         }
 
-        #btn-harvest-all {
-            display: none; 
-            background-color: #e63946;
-            font-size: 1.2rem;
-            padding: 10px 20px;
-            width: auto;
-            margin: 0;
-        }
-        #btn-harvest-all:hover { background-color: #d62828; }
-
-        /* --- Multi-Grid Layout --- */
-        #all-farms {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            max-width: 800px;
-            margin-bottom: 20px;
+        function finishGame() {
+            let totalTime = Math.floor((Date.now() - startTime) / 1000);
+            let best = localStorage.getItem('cheeseBestTime');
+            if (!best || totalTime < best) localStorage.setItem('cheeseBestTime', totalTime);
+            document.getElementById('end-msg').innerText = `Completion Time: ${totalTime}s\nCPS: ${formatNum(cps)}`;
+            document.getElementById('end-screen').style.display = 'flex';
+            setTimeout(() => document.getElementById('end-screen').style.opacity = '1', 10);
+            updateHOFUI();
         }
 
-        .farm-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 80px); 
-            grid-template-rows: repeat(3, 80px);
-            gap: 10px;
-            background: #a8dadc;
-            padding: 10px;
-            border-radius: 15px;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        function updateStats() {
+            let totalCPS = 0;
+            Object.keys(inv).forEach(k => inv[k].forEach(i => totalCPS += (i.owned || 0) * i.add));
+            cps = totalCPS;
+            document.getElementById('display-cheese').innerText = formatNum(score) + " Cheese";
+            document.getElementById('display-cps').innerText = "per second: " + cps.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1});
+            document.getElementById('timer').innerText = `Time: ${Math.floor((Date.now() - startTime) / 1000)}s`;
+            if (score >= 1e5) document.getElementById('tab2').classList.remove('hidden');
+            if (score >= 1e16) document.getElementById('tab3').classList.remove('hidden');
         }
 
-        .plot {
-            width: 80px;
-            height: 80px;
-            background-color: var(--grass);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            cursor: pointer;
-            transition: transform 0.1s, background-color 0.3s;
-            user-select: none;
-            border: 4px solid rgba(255,255,255,0.3);
+        function formatNum(n) { return n < 1e6 ? Math.floor(n).toLocaleString() : n.toExponential(2).replace("+", ""); }
+
+        function renderList(id, list, prefix) {
+            const cont = document.getElementById(id); cont.innerHTML = '';
+            list.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = `upg cannot-afford`;
+                div.id = `${prefix}-upg-${i}`;
+                div.onclick = () => buy(prefix, i);
+                div.innerHTML = `<div class="upg-info"><b>${item.name}</b>Cost: <span id="${prefix}-c-${i}">${formatNum(item.cost)}</span><br><small>+${formatNum(item.add)} CPS</small></div><div id="${prefix}-o-${i}">0</div>`;
+                cont.appendChild(div);
+            });
         }
 
-        .plot:hover { transform: scale(1.05); background-color: #a3d977; }
-        .plot.empty { background-color: var(--dirt); }
-        .plot.growing { background-color: #6d4c41; }
-        .plot.ready { background-color: #d4a373; border-color: var(--accent); }
-
-        /* --- Shop UI --- */
-        .shop-toggle {
-            background-color: #457b9d;
-            font-size: 1.2rem;
-            width: 250px;
-            margin-bottom: 10px;
+        function refreshUI() {
+            Object.keys(inv).forEach(k => inv[k].forEach((item, i) => {
+                const el = document.getElementById(`${k}-upg-${i}`); if(!el) return;
+                document.getElementById(`${k}-c-${i}`).innerText = formatNum(item.cost);
+                document.getElementById(`${k}-o-${i}`).innerText = item.owned || 0;
+                el.classList.toggle('can-afford', score >= item.cost);
+                el.classList.toggle('cannot-afford', score < item.cost);
+            }));
         }
-        .shop
+
+        function switchTab(n) {
+            for(let i=1; i<=7; i++) {
+                if(document.getElementById(`cont-${i}`)) document.getElementById(`cont-${i}`).classList.toggle('hidden', i !== n);
+                if(document.getElementById(`tab${i}`)) document.getElementById(`tab${i}`).classList.toggle('active', i === n);
+            }
+        }
+
+        document.getElementById('cheese').onclick = () => { score++; updateStats(); refreshUI(); };
+        setInterval(() => { score += cps/10; updateStats(); refreshUI(); }, 100);
+
+        function openAdmin() { if (prompt("Pass:") === 'cheeseboy121') { score = 1e301; updateStats(); refreshUI(); document.getElementById('tab7').classList.remove('hidden'); switchTab(7); } }
+        
+        for(let i=1; i<=7; i++) { 
+            const pre = i==7?'cel':i==6?'ang':i==5?'dem':i==4?'s4':i==3?'s3':i==2?'s2':'s1';
+            renderList('cont-'+i, inv[pre], pre);
+        }
+        updateHOFUI();
+        updateStats();
+    </script>
+</body>
+</html>
